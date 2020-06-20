@@ -187,7 +187,7 @@ class Spreadsheet:
         ''' Get sheet properties '''
         if sheetId is None and sheetName is None and not self.active_sheet_id is None:
             sheetId = self.active_sheet_id
-        elif type(sheetId) is str and sheetId.isnumeric():
+        if type(sheetId) is str and sheetId.isnumeric():
             sheetId = int(sheetId)
         sheets = self.get_metadata()
         if type(sheetId) is int:
