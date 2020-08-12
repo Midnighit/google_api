@@ -301,7 +301,7 @@ class Spreadsheet:
             }
         })
 
-    def set_dimension_group(self, sheetId=None, startIndex=1, endIndex=1, hidden=None, dimension='ROWS'):
+    def set_dimension_group(self, sheetId=None, startIndex=1, endIndex=None, hidden=None, dimension='ROWS'):
         sheetId = self._get_sheet_id(sheetId)
         self.batch_bodies.append({
             "addDimensionGroup": {
@@ -316,7 +316,7 @@ class Spreadsheet:
         if not hidden is None:
             self.set_visibility(sheetId, startIndex, endIndex, hidden, dimension)
 
-    def delete_dimension_group(self, sheetId=None, startIndex=1, endIndex=1, dimension = 'ROWS'):
+    def delete_dimension_group(self, sheetId=None, startIndex=1, endIndex=None, dimension = 'ROWS'):
         sheetId = self._get_sheet_id(sheetId)
         self.batch_bodies.append({
             "deleteDimensionGroup": {
@@ -329,7 +329,7 @@ class Spreadsheet:
             }
         })
 
-    def set_visibility(self, sheetId=None, startIndex=1, endIndex=1, hidden=False, dimension='ROWS'):
+    def set_visibility(self, sheetId=None, startIndex=1, endIndex=None, hidden=False, dimension='ROWS'):
         sheetId = self._get_sheet_id(sheetId)
         self.batch_bodies.append({
             "updateDimensionProperties": {

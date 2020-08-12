@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='google_api',
-    version='1.1.0',
+    version='1.1.1',
     description='API to make handling google spreadsheets easier',
     url='git@github.com:Midnighit/google_api.git',
     author='Midnight',
