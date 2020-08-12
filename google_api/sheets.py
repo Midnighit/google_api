@@ -9,7 +9,8 @@ class Spreadsheet:
         if not activeSheetId is None:
             self._active_sheet_id = activeSheetId
             self._active_sheet_name = self.get_sheet_name(activeSheetId)
-        self.requests = []
+        self.batch_bodies = []
+        self.results = []
 
     """ properties """
 
@@ -88,10 +89,17 @@ class Spreadsheet:
                 if type(cell) is float or type(cell) is int or type(cell) is str:
                     values[row_id][cell_id] = self._convert_ordinal_value(cell)
 
+    def _create_values_request(self, range, valueInputOption, body):
+        return self.service.spreadsheets().values().update(
+            spreadsheetId=self.id,
+            range=range,
+            valueInputOption=valueInputOption,
+            body=body)
+
     def _create_batchUpdate_request(self, body):
         return self.service.spreadsheets().batchUpdate(spreadsheetId=self.id, body={'requests': body})
 
-    """ externmal helper functions """
+    """ external helper functions """
 
     def convert_R1_A1(self, col):
         R1 = ""
@@ -171,10 +179,9 @@ class Spreadsheet:
 
     def commit(self):
         ''' Execute all the requests collected self.requests '''
-        results = []
-        for request in self.requests:
-            results.append(request.execute())
-        self.requests = []
+        results = self.results + [self._create_batchUpdate_request(self.batch_bodies).execute()]
+        self.batch_bodies = []
+        self.results = []
         return results
 
     """ spreadsheets """
@@ -238,12 +245,11 @@ class Spreadsheet:
             self._convert_ordinal_values(values)
         if not range:
             range = self._active_sheet_name
-        self.requests.append(self.service.spreadsheets().values().update(
+        self.results.append(self.service.spreadsheets().values().update(
             spreadsheetId=self.id,
             range=range,
             valueInputOption=valueInputOption,
-            body={"range": range, "majorDimension": majorDimension, "values": values}
-        ))
+            body={"range": range, "majorDimension": majorDimension, "values": values}).execute())
 
     def append(self, range=None, values=[], valueInputOption='USER_ENTERED', insertDataOption=None, majorDimension="ROWS", is_ordinal=False):
         ''' Append the cells at the given range '''
@@ -251,13 +257,12 @@ class Spreadsheet:
             self._convert_ordinal_values(values)
         if not range:
             range = self._active_sheet_name
-        self.requests.append(self.service.spreadsheets().values().append(
+        self.results.append(self.service.spreadsheets().values().append(
             spreadsheetId=self.id,
             range=range,
             valueInputOption=valueInputOption,
             insertDataOption=insertDataOption,
-            body={"range": range, "majorDimension": majorDimension, "values": values}
-        ))
+            body={"range": range, "majorDimension": majorDimension, "values": values}).execute())
 
     """ spreadsheets.batchUpdate """
 
@@ -265,24 +270,24 @@ class Spreadsheet:
         ''' Renames a sheet or spreadsheet '''
         sheetId = self._get_sheet_id(sheetId)
         if type(spreadSheetName) is str:
-            self.requests.append(self._create_batchUpdate_request({
+            self.batch_bodies.append({
                 "updateSpreadsheetProperties": {
                     "fields": "title",
                     "properties": {"title": spreadSheetName}
                 }
-            }))
+            })
         if type(sheetName) is str:
-            self.requests.append(self._create_batchUpdate_request({
+            self.batch_bodies.append({
                 "updateSheetProperties": {
                     "fields": "title",
                     "properties": {"sheetId": sheetId, "title": sheetName}
                 }
-            }))
+            })
 
     def set_grid_size(self, sheetId=None, cols=0, rows=0, frozen=0):
         ''' Sets the gridsize of the sheet '''
         sheetId = self._get_sheet_id(sheetId)
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "updateSheetProperties": {
                 "fields": "gridProperties.columnCount, gridProperties.rowCount, gridProperties.frozenRowCount",
                 "properties": {
@@ -294,11 +299,11 @@ class Spreadsheet:
                     }
                 }
             }
-        }))
+        })
 
-    def set_dimension_group(self, sheetId=None, startIndex=1, endIndex=1, visibility=None, dimension='ROWS'):
+    def set_dimension_group(self, sheetId=None, startIndex=1, endIndex=1, hidden=None, dimension='ROWS'):
         sheetId = self._get_sheet_id(sheetId)
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "addDimensionGroup": {
                 "range": {
                     "sheetId": sheetId,
@@ -307,13 +312,13 @@ class Spreadsheet:
                     "dimension": dimension
                 }
             }
-        }))
-        if not visibility is None:
-            self.set_visibility(sheetId, startIndex, endIndex, visibility, dimension)
+        })
+        if not hidden is None:
+            self.set_visibility(sheetId, startIndex, endIndex, hidden, dimension)
 
     def delete_dimension_group(self, sheetId=None, startIndex=1, endIndex=1, dimension = 'ROWS'):
         sheetId = self._get_sheet_id(sheetId)
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "deleteDimensionGroup": {
                 "range": {
                     "sheetId": sheetId,
@@ -322,15 +327,15 @@ class Spreadsheet:
                     "dimension": dimension
                 }
             }
-        }))
+        })
 
-    def set_visibility(self, sheetId=None, startIndex=1, endIndex=1, visibility=False, dimension='ROWS'):
+    def set_visibility(self, sheetId=None, startIndex=1, endIndex=1, hidden=False, dimension='ROWS'):
         sheetId = self._get_sheet_id(sheetId)
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "updateDimensionProperties": {
                 "fields": 'hiddenByUser',
                 "properties": {
-                    "hiddenByUser": visibility
+                    "hiddenByUser": hidden
                 },
                 "range": {
                     "sheetId": sheetId,
@@ -339,13 +344,13 @@ class Spreadsheet:
                     "dimension": dimension
                 }
             }
-        }))
+        })
 
     def merge_cells(self, sheetId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None, mergeType = "MERGE_ROWS"):
         sheetId = self._get_sheet_id(sheetId)
         if not mergeType in ('MERGE_ROWS', 'MERGE_COLUMNS'):
             mergeType = 'MERGE_ROWS'
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "mergeCells": {
                 "mergeType": mergeType,
                 "range": {
@@ -356,11 +361,11 @@ class Spreadsheet:
                     "endColumnIndex": endColumnIndex,
                 }
             }
-        }))
+        })
 
     def unmerge_cells(self, sheetId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None):
         sheetId = self._get_sheet_id(sheetId)
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "unmergeCells": {
                 "range": {
                     "sheetId": sheetId,
@@ -370,7 +375,7 @@ class Spreadsheet:
                     "endColumnIndex": endColumnIndex,
                 }
             }
-        }))
+        })
 
     def add_named_range(self, sheetId=None, name=None, namedRangeId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None):
         sheetId = self._get_sheet_id(sheetId)
@@ -400,7 +405,7 @@ class Spreadsheet:
 
     def set_filter(self, sheetId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None):
         sheetId = self._get_sheet_id(sheetId)
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "setBasicFilter": {
                 "filter": {
                     "range": {
@@ -412,7 +417,7 @@ class Spreadsheet:
                     }
                 }
             }
-        }))
+        })
 
     def set_bg_color(self, sheetId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None, color=None, red=0, green=0, blue=0, alpha=0):
         sheetId = self._get_sheet_id(sheetId)
@@ -420,7 +425,7 @@ class Spreadsheet:
             backgroundColor = self._get_color(COLORS[color][0], COLORS[color][1], COLORS[color][2], alpha)
         else:
             backgroundColor = self._get_color(red, green, blue, alpha)
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "repeatCell": {
                 "fields": "userEnteredFormat.backgroundColor",
                 "range": {
@@ -436,7 +441,7 @@ class Spreadsheet:
                     }
                 }
             }
-        }))
+        })
 
     def set_color(self, sheetId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None, color=None, red=0, green=0, blue=0, alpha=0):
         sheetId = self._get_sheet_id(sheetId)
@@ -444,7 +449,7 @@ class Spreadsheet:
             color = self._get_color(COLORS[color][0], COLORS[color][1], COLORS[color][2], alpha)
         else:
             color = self._get_color(red, green, blue, alpha)
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "repeatCell": {
                 "fields": "userEnteredFormat.textFormat.foregroundColor",
                 "range": {
@@ -462,7 +467,7 @@ class Spreadsheet:
                     }
                 }
             }
-        }))
+        })
 
     def set_format(self, sheetId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None, type=None, pattern=None):
         sheetId = self._get_sheet_id(sheetId)
@@ -471,7 +476,7 @@ class Spreadsheet:
             numberFormat['type'] = type
         if pattern:
             numberFormat['pattern'] = pattern
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "repeatCell": {
                 "fields": "userEnteredFormat.numberFormat",
                 "range": {
@@ -487,7 +492,7 @@ class Spreadsheet:
                     }
                 }
             }
-        }))
+        })
 
     def set_alignment(self, sheetId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None, horizontalAlignment=None, verticalAlignment=None):
         sheetId = self._get_sheet_id(sheetId)
@@ -496,7 +501,7 @@ class Spreadsheet:
             userEnteredFormat['horizontalAlignment'] = horizontalAlignment
         if verticalAlignment in VERTICAL_ALIGNMENT:
             userEnteredFormat['verticalAlignment'] = verticalAlignment
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "repeatCell": {
                 "fields": "userEnteredFormat.horizontalAlignment, userEnteredFormat.verticalAlignment",
                 "range": {
@@ -510,14 +515,14 @@ class Spreadsheet:
                     "userEnteredFormat": userEnteredFormat
                 }
             }
-        }))
+        })
 
     def set_wrap(self, sheetId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None, wrapStrategy='OVERFLOW_CELL'):
         sheetId = self._get_sheet_id(sheetId)
         userEnteredFormat = {}
         if wrapStrategy in WRAP_STRATEGY:
             userEnteredFormat['wrapStrategy'] = wrapStrategy
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "repeatCell": {
                 "fields": "userEnteredFormat.wrapStrategy",
                 "range": {
@@ -531,14 +536,14 @@ class Spreadsheet:
                     "userEnteredFormat": userEnteredFormat
                 }
             }
-        }))
+        })
 
     def set_borders(self):
         pass #ToDo
 
     def insert_rows(self, sheetId=None, startIndex=1, numRows=1, inheritFromBefore=True):
         sheetId = self._get_sheet_id(sheetId)
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "insertDimension": {
                 "inheritFromBefore": inheritFromBefore,
                 "range": {
@@ -548,11 +553,11 @@ class Spreadsheet:
                     "endIndex": startIndex - 1 + numRows,
                 }
             }
-        }))
+        })
 
     def insert_columns(self, sheetId=None, startIndex=1, numColumns=1, inheritFromBefore=True):
         sheetId = self._get_sheet_id(sheetId)
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "insertDimension": {
                 "inheritFromBefore": inheritFromBefore,
                 "range": {
@@ -562,11 +567,11 @@ class Spreadsheet:
                     "endIndex": startIndex - 1 + numColumns,
                 }
             }
-        }))
+        })
 
     def delete_rows(self, sheetId=None, startIndex=1, numRows=1):
         sheetId = self._get_sheet_id(sheetId)
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "deleteDimension": {
                 "range": {
                     "sheetId": sheetId,
@@ -575,11 +580,11 @@ class Spreadsheet:
                     "endIndex": startIndex - 1 + numRows,
                 }
             }
-        }))
+        })
 
     def delete_columns(self, sheetId=None, startIndex=1, numColumns=1):
         sheetId = self._get_sheet_id(sheetId)
-        self.requests.append(self._create_batchUpdate_request({
+        self.batch_bodies.append({
             "deleteDimension": {
                 "range": {
                     "sheetId": sheetId,
@@ -588,4 +593,4 @@ class Spreadsheet:
                     "endIndex": startIndex - 1 + numColumns,
                 }
             }
-        }))
+        })
