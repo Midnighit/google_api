@@ -16,10 +16,6 @@ class Spreadsheet:
 
     @property
     def active_sheet_id(self):
-        return self._active_sheet_name
-
-    @property
-    def active_sheet_id(self):
         return self._active_sheet_id
 
     @active_sheet_id.setter
