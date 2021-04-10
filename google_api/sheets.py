@@ -297,6 +297,22 @@ class Spreadsheet:
             }
         })
 
+    def sort(self, sheetId=None, sortCol=1, startRowIndex=1, endRowIndex=None, sortOrder="ASCENDING"):
+        ''' Sets the gridsize of the sheet '''
+        sheetId = self._get_sheet_id(sheetId)
+        self.batch_bodies.append({
+            "sortRange": {
+                "range": {
+                    "sheetId": sheetId,
+                    "startRowIndex": startRowIndex - 1
+                },
+                "sortSpecs": {
+                    "sortOrder": sortOrder,
+                    "dimensionIndex": sortCol - 1
+                }
+            }
+        })
+
     def set_dimension_group(self, sheetId=None, startIndex=1, endIndex=None, hidden=None, dimension='ROWS'):
         sheetId = self._get_sheet_id(sheetId)
         self.batch_bodies.append({
