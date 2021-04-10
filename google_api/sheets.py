@@ -297,6 +297,21 @@ class Spreadsheet:
             }
         })
 
+    def set_frozen(self, sheetId=None, rows=1):
+        ''' Freeze the given number of top rows '''
+        sheetId = self._get_sheet_id(sheetId)
+        self.batch_bodies.append({
+            "updateSheetProperties": {
+                "fields": "gridProperties.frozenRowCount",
+                "properties": {
+                    "sheetId": sheetId,
+                    "gridProperties": {
+                        "frozenRowCount": rows
+                    }
+                }
+            }
+        })
+
     def sort(self, sheetId=None, sortCol=1, startRowIndex=1, endRowIndex=None, sortOrder="ASCENDING"):
         ''' Sets the gridsize of the sheet '''
         sheetId = self._get_sheet_id(sheetId)
