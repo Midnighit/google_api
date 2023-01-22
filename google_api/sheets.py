@@ -1,12 +1,13 @@
-from google_api import *
+from google_api import credentials, COLORS, NUMBER_FORMATS, HORIZONTAL_ALIGNMENT, VERTICAL_ALIGNMENT, WRAP_STRATEGY
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
+
 
 class Spreadsheet:
     def __init__(self, id, activeSheetId=None):
         self.service = build('sheets', 'v4', credentials=credentials)
         self.id = id
-        if not activeSheetId is None:
+        if activeSheetId is not None:
             self._active_sheet_id = activeSheetId
             self._active_sheet_name = self.get_sheet_name(activeSheetId)
         self.batch_bodies = []
@@ -53,7 +54,7 @@ class Spreadsheet:
     def _get_sheet_id(self, sheetId):
         if type(sheetId) is int:
             return sheetId
-        if sheetId is None and not self.active_sheet_id is None:
+        if sheetId is None and self.active_sheet_id is not None:
             return self.active_sheet_id
         if type(sheetId) is str and sheetId.isnumeric():
             return int(sheetId)
@@ -73,7 +74,7 @@ class Spreadsheet:
         if type(ordinal) is str:
             try:
                 ordinal = float(ordinal)
-            except:
+            except Exception:
                 return ordinal
         if ordinal >= 60:
             ordinal -= 1  # Excel leap year bug, 1900 is not a leap year!
@@ -188,7 +189,7 @@ class Spreadsheet:
 
     def get_properties(self, sheetId=None, sheetName=None):
         ''' Get sheet properties '''
-        if sheetId is None and sheetName is None and not self.active_sheet_id is None:
+        if sheetId is None and sheetName is None and self.active_sheet_id is not None:
             sheetId = self.active_sheet_id
         if type(sheetId) is str and sheetId.isnumeric():
             sheetId = int(sheetId)
@@ -211,7 +212,7 @@ class Spreadsheet:
         return False
 
     def get_sheet_name(self, sheetId=None):
-        if sheetId is None and not self.active_sheet_id is None:
+        if sheetId is None and self.active_sheet_id is not None:
             sheetId = self.active_sheet_id
         elif type(sheetId) is str and sheetId.isnumeric():
             sheetId = int(sheetId)
@@ -228,9 +229,9 @@ class Spreadsheet:
         if not range:
             range = self._active_sheet_name
         values = self.service.spreadsheets().values().get(
-            spreadsheetId = self.id,
-            range = range,
-            valueRenderOption = valueRenderOption).execute().get('values', [])
+            spreadsheetId=self.id,
+            range=range,
+            valueRenderOption=valueRenderOption).execute().get('values', [])
         if is_ordinal:
             self._convert_ordinal_values(values)
         return values
@@ -247,7 +248,15 @@ class Spreadsheet:
             valueInputOption=valueInputOption,
             body={"range": range, "majorDimension": majorDimension, "values": values}).execute())
 
-    def append(self, range=None, values=[], valueInputOption='USER_ENTERED', insertDataOption=None, majorDimension="ROWS", is_ordinal=False):
+    def append(
+        self,
+        range=None,
+        values=[],
+        valueInputOption='USER_ENTERED',
+        insertDataOption=None,
+        majorDimension="ROWS",
+        is_ordinal=False
+    ):
         ''' Append the cells at the given range '''
         if is_ordinal:
             self._convert_ordinal_values(values)
@@ -340,10 +349,10 @@ class Spreadsheet:
                 }
             }
         })
-        if not hidden is None:
+        if hidden is not None:
             self.set_visibility(sheetId, startIndex, endIndex, hidden, dimension)
 
-    def delete_dimension_group(self, sheetId=None, startIndex=1, endIndex=None, dimension = 'ROWS'):
+    def delete_dimension_group(self, sheetId=None, startIndex=1, endIndex=None, dimension='ROWS'):
         sheetId = self._get_sheet_id(sheetId)
         self.batch_bodies.append({
             "deleteDimensionGroup": {
@@ -373,9 +382,17 @@ class Spreadsheet:
             }
         })
 
-    def merge_cells(self, sheetId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None, mergeType = "MERGE_ROWS"):
+    def merge_cells(
+        self,
+        sheetId=None,
+        startColumnIndex=1,
+        startRowIndex=1,
+        endColumnIndex=None,
+        endRowIndex=None,
+        mergeType="MERGE_ROWS"
+    ):
         sheetId = self._get_sheet_id(sheetId)
-        if not mergeType in ('MERGE_ROWS', 'MERGE_COLUMNS'):
+        if mergeType not in ('MERGE_ROWS', 'MERGE_COLUMNS'):
             mergeType = 'MERGE_ROWS'
         self.batch_bodies.append({
             "mergeCells": {
@@ -404,7 +421,16 @@ class Spreadsheet:
             }
         })
 
-    def add_named_range(self, sheetId=None, name=None, namedRangeId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None):
+    def add_named_range(
+        self,
+        sheetId=None,
+        name=None,
+        namedRangeId=None,
+        startColumnIndex=1,
+        startRowIndex=1,
+        endColumnIndex=None,
+        endRowIndex=None
+    ):
         sheetId = self._get_sheet_id(sheetId)
         if name is None:
             return
@@ -420,14 +446,14 @@ class Spreadsheet:
         })
         if namedRangeId:
             request["addNamedRange"]["namedRange"]["namedRangeId"] = str(namedRangeId)
-        if startCol:
-            request["addNamedRange"]["namedRange"]["range"]['startColumnIndex'] = startCol - 1
-        if endCol:
-            request["addNamedRange"]["namedRange"]["range"]['endColumnIndex'] = endCol
-        if startRow:
-            request["addNamedRange"]["namedRange"]["range"]['startRowIndex'] = startRow - 1
-        if endRow:
-            request["addNamedRange"]["namedRange"]["range"]['endRowIndex'] = endRow
+        if startColumnIndex:
+            request["addNamedRange"]["namedRange"]["range"]['startColumnIndex'] = startColumnIndex - 1
+        if endColumnIndex:
+            request["addNamedRange"]["namedRange"]["range"]['endColumnIndex'] = endColumnIndex
+        if startRowIndex:
+            request["addNamedRange"]["namedRange"]["range"]['startRowIndex'] = startRowIndex - 1
+        if endRowIndex:
+            request["addNamedRange"]["namedRange"]["range"]['endRowIndex'] = endRowIndex
         self.requests.append(request)
 
     def set_filter(self, sheetId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None):
@@ -446,7 +472,19 @@ class Spreadsheet:
             }
         })
 
-    def set_bg_color(self, sheetId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None, color=None, red=0, green=0, blue=0, alpha=0):
+    def set_bg_color(
+        self,
+        sheetId=None,
+        startColumnIndex=1,
+        startRowIndex=1,
+        endColumnIndex=None,
+        endRowIndex=None,
+        color=None,
+        red=0,
+        green=0,
+        blue=0,
+        alpha=0
+    ):
         sheetId = self._get_sheet_id(sheetId)
         if color and color in COLORS:
             backgroundColor = self._get_color(COLORS[color][0], COLORS[color][1], COLORS[color][2], alpha)
@@ -470,7 +508,19 @@ class Spreadsheet:
             }
         })
 
-    def set_color(self, sheetId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None, color=None, red=0, green=0, blue=0, alpha=0):
+    def set_color(
+        self,
+        sheetId=None,
+        startColumnIndex=1,
+        startRowIndex=1,
+        endColumnIndex=None,
+        endRowIndex=None,
+        color=None,
+        red=0,
+        green=0,
+        blue=0,
+        alpha=0
+    ):
         sheetId = self._get_sheet_id(sheetId)
         if color and color in COLORS:
             color = self._get_color(COLORS[color][0], COLORS[color][1], COLORS[color][2], alpha)
@@ -496,7 +546,16 @@ class Spreadsheet:
             }
         })
 
-    def set_format(self, sheetId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None, type=None, pattern=None):
+    def set_format(
+        self,
+        sheetId=None,
+        startColumnIndex=1,
+        startRowIndex=1,
+        endColumnIndex=None,
+        endRowIndex=None,
+        type=None,
+        pattern=None
+    ):
         sheetId = self._get_sheet_id(sheetId)
         numberFormat = {}
         if type in NUMBER_FORMATS:
@@ -521,7 +580,16 @@ class Spreadsheet:
             }
         })
 
-    def set_alignment(self, sheetId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None, horizontalAlignment=None, verticalAlignment=None):
+    def set_alignment(
+        self,
+        sheetId=None,
+        startColumnIndex=1,
+        startRowIndex=1,
+        endColumnIndex=None,
+        endRowIndex=None,
+        horizontalAlignment=None,
+        verticalAlignment=None
+    ):
         sheetId = self._get_sheet_id(sheetId)
         userEnteredFormat = {}
         if horizontalAlignment in HORIZONTAL_ALIGNMENT:
@@ -544,7 +612,15 @@ class Spreadsheet:
             }
         })
 
-    def set_wrap(self, sheetId=None, startColumnIndex=1, startRowIndex=1, endColumnIndex=None, endRowIndex=None, wrapStrategy='OVERFLOW_CELL'):
+    def set_wrap(
+        self,
+        sheetId=None,
+        startColumnIndex=1,
+        startRowIndex=1,
+        endColumnIndex=None,
+        endRowIndex=None,
+        wrapStrategy='OVERFLOW_CELL'
+    ):
         sheetId = self._get_sheet_id(sheetId)
         userEnteredFormat = {}
         if wrapStrategy in WRAP_STRATEGY:
@@ -566,7 +642,7 @@ class Spreadsheet:
         })
 
     def set_borders(self):
-        pass #ToDo
+        pass    # ToDo
 
     def insert_rows(self, sheetId=None, startIndex=1, numRows=1, inheritFromBefore=True):
         sheetId = self._get_sheet_id(sheetId)
